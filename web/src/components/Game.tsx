@@ -19,7 +19,7 @@ import { endGame } from "@/app/actions";
 import { DEFAULT_THEMES, LEVELS } from "@/lib/game/themes";
 import { useT, ThemeToggle } from "@/lib/i18n";
 import type { Guess, Player, Room, Round, Submission } from "@/lib/types";
-import { PageShell, Brand, Card, Button, Notice, LiveBadge } from "@/components/ui";
+import { PageShell, Brand, Card, Button, Notice, LiveBadge, TextInput } from "@/components/ui";
 
 type TFn = (key: string, params?: Record<string, string | number>) => string;
 
@@ -184,7 +184,14 @@ function PendingRow({ names, t }: { names: string[]; t: TFn }) {
 // --------------------------------------------------------------------------
 function ThemePhase({ room, identity, isStoryteller, nameOf, storytellerId, t }: Ctx) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [custom, setCustom] = useState("");
   if (!isStoryteller) return <WaitingCard text={t("wait.theme", { name: nameOf(storytellerId) })} />;
+
+  async function choose(theme: string) {
+    setBusy(theme);
+    await selectTheme({ code: room.code, playerId: identity.playerId, theme });
+  }
+
   return (
     <div>
       <h2 className="font-display font-semibold text-ink text-xl mb-1">{t("theme.title")}</h2>
@@ -194,15 +201,32 @@ function ThemePhase({ room, identity, isStoryteller, nameOf, storytellerId, t }:
           <button
             key={theme}
             disabled={!!busy}
-            onClick={async () => {
-              setBusy(theme);
-              await selectTheme({ code: room.code, playerId: identity.playerId, theme });
-            }}
+            onClick={() => choose(theme)}
             className="text-left bg-surface border border-border rounded-2xl px-4 py-3.5 text-ink font-medium hover:border-accent transition disabled:opacity-50 cursor-pointer"
           >
             {theme}
           </button>
         ))}
+      </div>
+
+      <div className="flex items-center gap-3 my-4">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs text-ink-faint">{t("theme.or")}</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+      <div className="flex gap-2">
+        <TextInput
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          placeholder={t("theme.custom_ph")}
+          maxLength={40}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && custom.trim() && !busy) choose(custom.trim());
+          }}
+        />
+        <Button onClick={() => choose(custom.trim())} disabled={!!busy || !custom.trim()}>
+          {t("theme.custom_use")}
+        </Button>
       </div>
     </div>
   );

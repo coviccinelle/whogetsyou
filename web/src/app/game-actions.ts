@@ -2,7 +2,6 @@
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { computeScoring, type ScoringOption } from "@/lib/game/scoring";
-import { DEFAULT_THEMES } from "@/lib/game/themes";
 import type { Level, Room } from "@/lib/types";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -88,13 +87,14 @@ export async function selectTheme(input: {
   if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
     return { ok: false, error: "err.storytellerOnly" };
-  if (!DEFAULT_THEMES.includes(input.theme))
-    return { ok: false, error: "err.badTheme" };
+  // Accept a preset theme or a custom one the storyteller typed.
+  const theme = (input.theme ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!theme) return { ok: false, error: "err.badTheme" };
 
   const supabase = getSupabaseAdmin();
   await supabase
     .from("rooms")
-    .update({ selected_theme: input.theme, phase: "level_selection", updated_at: new Date().toISOString() })
+    .update({ selected_theme: theme, phase: "level_selection", updated_at: new Date().toISOString() })
     .eq("id", room.id);
   return { ok: true, data: null };
 }
