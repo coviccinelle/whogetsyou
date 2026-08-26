@@ -19,8 +19,10 @@
   --warn: #b4690e;
 }
 
+/* Dark tokens: applied when the OS prefers dark (unless the user forced light),
+   and always when the user explicitly toggles to dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #16121a;
     --surface: #1f1a26;
     --surface-2: #271f2f;
@@ -37,6 +39,23 @@
     --good: #6fcf8e;
     --warn: #e8a44a;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #16121a;
+  --surface: #1f1a26;
+  --surface-2: #271f2f;
+  --border: #322938;
+  --border-strong: #43384b;
+  --ink: #f3ecef;
+  --ink-soft: #c3b6c0;
+  --ink-faint: #8c8090;
+  --accent: #f06595;
+  --accent-ink: #f79ab8;
+  --accent-soft: #331825;
+  --cool: #3fd0ce;
+  --cool-soft: #10312f;
+  --good: #6fcf8e;
+  --warn: #e8a44a;
 }
 
 /* ---- Map tokens into Tailwind's color/font system ---- */

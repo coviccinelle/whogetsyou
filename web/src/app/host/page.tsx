@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createRoom } from "@/app/actions";
 import { rememberIdentity } from "@/lib/identity";
 import { SUPPORTED_LLM_MODELS, type Language } from "@/lib/types";
-import { useT, useLang, LangToggle, LANGS, LANG_LABELS, LANG_FLAGS } from "@/lib/i18n";
+import { useT, useLang, LangToggle, ThemeToggle, LANGS, LANG_LABELS, LANG_FLAGS } from "@/lib/i18n";
 import {
   PageShell,
   Brand,
@@ -52,7 +52,10 @@ export default function HostPage() {
     <PageShell>
       <div className="mb-6 flex items-center justify-between">
         <Brand small />
-        <LangToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LangToggle />
+        </div>
       </div>
       <h1 className="font-display font-semibold text-ink text-2xl mb-1">{t("host.title")}</h1>
       <p className="text-ink-soft text-sm mb-6">{t("host.subtitle")}</p>

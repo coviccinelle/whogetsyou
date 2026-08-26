@@ -5,6 +5,7 @@
 -- ============================================================
 
 -- Clean slate (only these app tables) --------------------------------
+drop table if exists question_feedback cascade;
 drop table if exists guesses cascade;
 drop table if exists submissions cascade;
 drop table if exists rounds cascade;
@@ -91,16 +92,33 @@ create table guesses (
 
 create index guesses_round_idx on guesses (round_id);
 
+-- Question feedback (players flag a question as good or bad) ----------
+create table question_feedback (
+  id          uuid primary key default gen_random_uuid(),
+  room_id     uuid references rooms(id) on delete set null,
+  round_id    uuid,
+  player_id   uuid,
+  question    text,
+  question_en text,
+  theme       text,
+  level       text,
+  kind        text not null,               -- like | report
+  created_at  timestamptz not null default now()
+);
+
+create index question_feedback_kind_idx on question_feedback (kind, created_at desc);
+
 -- ============================================================
 -- Row Level Security
 -- The browser (anon key) only READS — this is what powers Realtime.
 -- All writes go through the server (service role key) which bypasses RLS.
 -- ============================================================
-alter table rooms       enable row level security;
-alter table players     enable row level security;
-alter table rounds      enable row level security;
-alter table submissions enable row level security;
-alter table guesses     enable row level security;
+alter table rooms            enable row level security;
+alter table players          enable row level security;
+alter table rounds           enable row level security;
+alter table submissions      enable row level security;
+alter table guesses          enable row level security;
+alter table question_feedback enable row level security; -- write-only via server; no anon policy
 
 create policy "anon read rooms"       on rooms       for select using (true);
 create policy "anon read players"     on players     for select using (true);

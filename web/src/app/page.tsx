@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { PageShell, Card } from "@/components/ui";
-import { useT, LangToggle } from "@/lib/i18n";
+import { useT, LangToggle, ThemeToggle } from "@/lib/i18n";
 
 export default function Home() {
   const t = useT();
   return (
     <PageShell>
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-end items-center gap-2 pt-2">
+        <ThemeToggle />
         <LangToggle />
       </div>
       <div className="flex-1 flex flex-col justify-center gap-8 py-6">

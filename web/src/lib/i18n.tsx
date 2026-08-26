@@ -130,6 +130,11 @@ const EN: Dict = {
   "answer.forceGuess": "(Host) Start guessing now",
   "progress.answered": "answered",
   "progress.guessed": "guessed",
+  "progress.waitingOn": "Waiting on",
+  "feedback.report": "🚩 Report question",
+  "feedback.reported": "Reported — thanks ✓",
+  "feedback.like": "👍 Good question",
+  "feedback.liked": "Thanks ✓",
 
   // Guess
   "guess.storyWait": "Everyone's guessing which answer is yours…",
@@ -150,7 +155,7 @@ const EN: Dict = {
   // Results
   "results.over": "Game over",
   "results.noWinner": "No winner",
-  "results.reasonWinner": "Someone reached {max} points.",
+  "results.reasonWinner": "Someone hit the {max}-point target 🎉",
   "results.reasonHost": "The host ended the game early.",
   "results.reasonDefault": "The game has ended.",
   "results.backLobby": "Back to lobby (play again)",
@@ -314,6 +319,11 @@ const VN: Dict = {
   "answer.forceGuess": "(Chủ phòng) Bắt đầu đoán ngay",
   "progress.answered": "đã trả lời",
   "progress.guessed": "đã đoán",
+  "progress.waitingOn": "Còn chờ",
+  "feedback.report": "🚩 Báo câu hỏi lỗi",
+  "feedback.reported": "Đã báo — cảm ơn ✓",
+  "feedback.like": "👍 Câu hỏi hay",
+  "feedback.liked": "Cảm ơn ✓",
 
   "guess.storyWait": "Mọi người đang đoán đâu là câu của bạn…",
   "guess.prompt": "Đâu là câu trả lời của người kể chuyện?",
@@ -331,7 +341,7 @@ const VN: Dict = {
 
   "results.over": "Kết thúc",
   "results.noWinner": "Không có người thắng",
-  "results.reasonWinner": "Có người đạt {max} điểm.",
+  "results.reasonWinner": "Đã có người cán mốc {max} điểm 🎉",
   "results.reasonHost": "Chủ phòng kết thúc sớm.",
   "results.reasonDefault": "Ván đã kết thúc.",
   "results.backLobby": "Về lobby (chơi lại)",
@@ -435,6 +445,43 @@ export function useLang() {
 export function useT() {
   const { lang } = useContext(LangContext);
   return (key: string, params?: Record<string, string | number>) => translate(lang, key, params);
+}
+
+/** Light/dark toggle. Persists an explicit choice; otherwise follows the OS. */
+export function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
+  useEffect(() => {
+    let resolved: "light" | "dark";
+    try {
+      const saved = localStorage.getItem("wgy.theme");
+      resolved = saved === "light" || saved === "dark" ? saved : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    } catch {
+      resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(resolved);
+  }, []);
+
+  function toggle() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem("wgy.theme", next);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      aria-label="Toggle dark mode"
+      className="w-8 h-8 grid place-items-center rounded-lg border border-border-strong bg-surface text-ink-soft hover:text-ink cursor-pointer text-sm"
+    >
+      {theme === "dark" ? "☀️" : "🌙"}
+    </button>
+  );
 }
 
 /** EN | VN switch, hidden when the language is locked by the room. */

@@ -12,11 +12,12 @@ import {
   forceReveal,
   nextTurn,
   finishGameEarly,
+  submitQuestionFeedback,
 } from "@/app/game-actions";
 import { generateQuestion, regenerateQuestion, suggestMyAnswer } from "@/app/llm-actions";
 import { endGame } from "@/app/actions";
 import { DEFAULT_THEMES, LEVELS } from "@/lib/game/themes";
-import { useT } from "@/lib/i18n";
+import { useT, ThemeToggle } from "@/lib/i18n";
 import type { Guess, Player, Room, Round, Submission } from "@/lib/types";
 import { PageShell, Brand, Card, Button, Notice, LiveBadge } from "@/components/ui";
 
@@ -46,7 +47,10 @@ export default function Game(props: GameProps) {
     <PageShell>
       <div className="flex items-center justify-between mb-4">
         <Brand small />
-        <LiveBadge live={props.live} />
+        <div className="flex items-center gap-2">
+          <LiveBadge live={props.live} />
+          <ThemeToggle />
+        </div>
       </div>
 
       {!props.live ? (
@@ -131,12 +135,49 @@ function WaitingCard({ text }: { text: string }) {
   );
 }
 
-function QuestionBanner({ text, label }: { text: string; label: string }) {
+function QuestionBanner({ text, label, meta }: { text: string; label: string; meta?: string }) {
   return (
-    <div className="rounded-2xl p-4 mb-4 border" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
-      <p className="text-xs font-mono uppercase tracking-wider text-accent-ink mb-1">{label}</p>
+    <div className="rounded-2xl p-4 mb-3 border" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <p className="text-xs font-mono uppercase tracking-wider text-accent-ink">{label}</p>
+        {meta ? <p className="text-xs text-accent-ink/80 font-mono truncate">{meta}</p> : null}
+      </div>
       <p className="text-ink font-display font-semibold text-lg leading-snug">{text}</p>
     </div>
+  );
+}
+
+function QuestionFeedback({ code, playerId, t }: { code: string; playerId: string; t: TFn }) {
+  const [done, setDone] = useState<null | "like" | "report">(null);
+  async function send(kind: "like" | "report") {
+    if (done) return;
+    setDone(kind);
+    await submitQuestionFeedback({ code, playerId, kind });
+  }
+  return (
+    <div className="flex items-center gap-4 mb-4 -mt-1 px-1">
+      {done ? (
+        <span className="text-xs text-ink-faint">{done === "report" ? t("feedback.reported") : t("feedback.liked")}</span>
+      ) : (
+        <>
+          <button onClick={() => send("like")} className="text-xs text-ink-faint hover:text-ink cursor-pointer">
+            {t("feedback.like")}
+          </button>
+          <button onClick={() => send("report")} className="text-xs text-ink-faint hover:text-[color:var(--accent-ink)] cursor-pointer">
+            {t("feedback.report")}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PendingRow({ names, t }: { names: string[]; t: TFn }) {
+  if (names.length === 0) return null;
+  return (
+    <p className="mt-2 text-xs text-ink-faint text-center">
+      {t("progress.waitingOn")}: <span className="text-ink-soft">{names.join(", ")}</span>
+    </p>
   );
 }
 
@@ -353,9 +394,12 @@ function AnswerPhase({ room, players, submissions, identity, isHost, t }: Ctx) {
     setBusy(false);
   }
 
+  const pending = players.filter((p) => !submissions.some((s) => s.player_id === p.id)).map((p) => p.name);
+
   return (
     <div>
-      <QuestionBanner text={question} label={t("phase.question")} />
+      <QuestionBanner text={question} label={t("phase.question")} meta={`${room.selected_theme} · ${levelWord(t, room.selected_level)}`} />
+      <QuestionFeedback code={room.code} playerId={identity.playerId} t={t} />
       <p className="text-sm text-ink-soft mb-3">{t("answer.info")}</p>
 
       {mine && !editing ? (
@@ -395,6 +439,7 @@ function AnswerPhase({ room, players, submissions, identity, isHost, t }: Ctx) {
       )}
 
       <ProgressRow done={submissions.length} total={players.length} label={t("progress.answered")} />
+      <PendingRow names={pending} t={t} />
 
       {isHost && submissions.length >= 2 ? (
         <button
@@ -409,11 +454,14 @@ function AnswerPhase({ room, players, submissions, identity, isHost, t }: Ctx) {
 }
 
 // --------------------------------------------------------------------------
-function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost, t }: Ctx) {
+function GuessPhase({ room, players, round, guesses, identity, isStoryteller, isHost, storytellerId, t }: Ctx) {
   const options = round?.options ?? [];
   const myGuess = guesses.find((g) => g.player_id === identity.playerId);
   const listenerTotal = room.storyteller_order.length - 1;
   const [busy, setBusy] = useState(false);
+  const pending = players
+    .filter((p) => p.id !== storytellerId && !guesses.some((g) => g.player_id === p.id))
+    .map((p) => p.name);
 
   async function pick(submissionId: string) {
     setBusy(true);
@@ -423,7 +471,8 @@ function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost, t }
 
   return (
     <div>
-      <QuestionBanner text={room.question?.question ?? ""} label={t("phase.question")} />
+      <QuestionBanner text={room.question?.question ?? ""} label={t("phase.question")} meta={`${room.selected_theme} · ${levelWord(t, room.selected_level)}`} />
+      <QuestionFeedback code={room.code} playerId={identity.playerId} t={t} />
       {isStoryteller ? (
         <Card className="mb-3 text-center py-6">
           <div className="text-2xl mb-1">🕵️</div>
@@ -460,6 +509,7 @@ function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost, t }
       </div>
 
       <ProgressRow done={guesses.length} total={listenerTotal} label={t("progress.guessed")} />
+      <PendingRow names={pending} t={t} />
 
       {isHost && guesses.length >= 1 ? (
         <button
@@ -489,7 +539,8 @@ function RevealPhase({ room, round, players, identity, isStoryteller, isHost, na
 
   return (
     <div>
-      <QuestionBanner text={room.question?.question ?? ""} label={t("phase.question")} />
+      <QuestionBanner text={room.question?.question ?? ""} label={t("phase.question")} meta={`${room.selected_theme} · ${levelWord(t, room.selected_level)}`} />
+      <QuestionFeedback code={room.code} playerId={identity.playerId} t={t} />
       <h2 className="font-display font-semibold text-ink text-xl mb-3">{t("reveal.title")}</h2>
 
       <div className="flex flex-col gap-2.5 mb-4">

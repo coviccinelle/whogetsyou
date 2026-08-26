@@ -135,16 +135,26 @@ export async function joinRoom(input: {
     .eq("code", code)
     .single();
   if (!room) return { ok: false, error: "err.roomNotFound" };
-  if (room.started) {
-    return { ok: false, error: "err.alreadyStarted" };
-  }
+
+  // Reclaim an existing slot if a player with this name is already in the room
+  // (same person rejoining after a disconnect / kick). Prevents duplicate names.
+  const { data: existing } = await supabase
+    .from("players")
+    .select("id, name")
+    .eq("room_id", room.id);
+  const normalized = name.toLowerCase();
+  const match = (existing ?? []).find((p) => p.name.trim().toLowerCase() === normalized);
+  if (match) return { ok: true, data: { code, playerId: match.id } };
+
+  // No matching player: new joiners can only enter before the game starts.
+  if (room.started) return { ok: false, error: "err.alreadyStarted" };
 
   const { data: player, error } = await supabase
     .from("players")
     .insert({ room_id: room.id, name, role: "joiner" })
     .select("id")
     .single();
-  if (error || !player) return { ok: false, error: error?.message ?? "err.joinFailed" };
+  if (error || !player) return { ok: false, error: "err.joinFailed" };
   return { ok: true, data: { code, playerId: player.id } };
 }
 
@@ -255,6 +265,10 @@ export async function startGame(input: {
     [order[i], order[j]] = [order[j], order[i]];
   }
 
+  // Clear any rounds/submissions/guesses from a previous game so a replay
+  // starts clean (round_no resets to 1 and must not reuse an old round row).
+  await supabase.from("rounds").delete().eq("room_id", guard.room.id);
+
   const { error } = await supabase
     .from("rooms")
     .update({
@@ -288,6 +302,8 @@ export async function endGame(input: {
   const guard = await assertHost(input.code, input.hostId);
   if (!guard.ok) return { ok: false, error: guard.error };
   const supabase = getSupabaseAdmin();
+  // Clear rounds so the lobby (and any next game) never sees stale data.
+  await supabase.from("rounds").delete().eq("room_id", guard.room.id);
   const { error } = await supabase
     .from("rooms")
     .update({

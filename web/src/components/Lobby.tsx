@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startGame, updateSettings, removePlayer, leaveRoom } from "@/app/actions";
 import { forgetIdentity } from "@/lib/identity";
-import { useT } from "@/lib/i18n";
+import { useT, ThemeToggle } from "@/lib/i18n";
 import {
   MIN_PLAYERS_TO_START,
   SUPPORTED_LANGUAGES,
@@ -78,7 +78,10 @@ export default function Lobby({
     <PageShell>
       <div className="flex items-center justify-between mb-5">
         <Brand small />
-        <LiveBadge live={live} />
+        <div className="flex items-center gap-2">
+          <LiveBadge live={live} />
+          <ThemeToggle />
+        </div>
       </div>
 
       <Card className="text-center mb-4">

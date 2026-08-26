@@ -478,3 +478,33 @@ export async function finishGameEarly(input: {
     .eq("id", room.id);
   return { ok: true, data: null };
 }
+
+// ---------------------------------------------------------------------------
+// Question feedback — a player marks the current question good or broken.
+// ---------------------------------------------------------------------------
+export async function submitQuestionFeedback(input: {
+  code: string;
+  playerId: string;
+  kind: "like" | "report";
+}): Promise<ActionResult<null>> {
+  if (input.kind !== "like" && input.kind !== "report") return { ok: false, error: "err.generic" };
+  const room = await loadRoom(input.code);
+  if (!room) return { ok: false, error: "err.roomNotFound" };
+  const supabase = getSupabaseAdmin();
+  const round = await getRound(room.id, room.round);
+  const q = (room.question ?? round?.question ?? null) as
+    | { question?: string; question_en?: string }
+    | null;
+  const { error } = await supabase.from("question_feedback").insert({
+    room_id: room.id,
+    round_id: round?.id ?? null,
+    player_id: input.playerId,
+    question: q?.question ?? null,
+    question_en: q?.question_en ?? null,
+    theme: room.selected_theme ?? round?.theme ?? null,
+    level: room.selected_level ?? round?.level ?? null,
+    kind: input.kind,
+  });
+  if (error) return { ok: false, error: "err.generic" };
+  return { ok: true, data: null };
+}

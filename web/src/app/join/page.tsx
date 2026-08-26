@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { joinRoom, listPublicRooms, type PublicRoom } from "@/app/actions";
 import { rememberIdentity } from "@/lib/identity";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { useT, LangToggle } from "@/lib/i18n";
+import { useT, LangToggle, ThemeToggle } from "@/lib/i18n";
 import { PageShell, Brand, Card, Button, Field, TextInput, Notice } from "@/components/ui";
 
 export default function JoinPage() {
@@ -69,7 +69,10 @@ export default function JoinPage() {
     <PageShell>
       <div className="mb-6 flex items-center justify-between">
         <Brand small />
-        <LangToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LangToggle />
+        </div>
       </div>
       <h1 className="font-display font-semibold text-ink text-2xl mb-1">{t("join.title")}</h1>
       <p className="text-ink-soft text-sm mb-6">{t("join.subtitle")}</p>
