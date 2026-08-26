@@ -16,8 +16,11 @@ import {
 import { generateQuestion, regenerateQuestion, suggestMyAnswer } from "@/app/llm-actions";
 import { endGame } from "@/app/actions";
 import { DEFAULT_THEMES, LEVELS } from "@/lib/game/themes";
+import { useT } from "@/lib/i18n";
 import type { Guess, Player, Room, Round, Submission } from "@/lib/types";
 import { PageShell, Brand, Card, Button, Notice, LiveBadge } from "@/components/ui";
+
+type TFn = (key: string, params?: Record<string, string | number>) => string;
 
 interface GameProps {
   room: Room;
@@ -31,12 +34,13 @@ interface GameProps {
 
 export default function Game(props: GameProps) {
   const { room, players, identity } = props;
+  const t = useT();
   const storytellerId = room.storyteller_order[room.turn_index] ?? null;
   const isStoryteller = identity.playerId === storytellerId;
   const isHost = identity.playerId === room.host_id;
   const nameOf = (id: string | null) => players.find((p) => p.id === id)?.name ?? "…";
 
-  const ctx = { ...props, storytellerId, isStoryteller, isHost, nameOf };
+  const ctx: Ctx = { ...props, storytellerId, isStoryteller, isHost, nameOf, t };
 
   return (
     <PageShell>
@@ -47,7 +51,7 @@ export default function Game(props: GameProps) {
 
       {!props.live ? (
         <div className="mb-3 text-xs text-center text-warn bg-warn/10 border border-warn/30 rounded-lg py-1.5">
-          Mất kết nối — đang thử lại…
+          {t("game.reconnect")}
         </div>
       ) : null}
 
@@ -68,95 +72,33 @@ export default function Game(props: GameProps) {
   );
 }
 
-// --------------------------------------------------------------------------
-// Host controls: skip a stuck storyteller, or end the game early.
-// --------------------------------------------------------------------------
-function HostControls({ room, identity }: Ctx) {
-  const [open, setOpen] = useState(false);
-  const [confirmEnd, setConfirmEnd] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <div className="mt-8 pt-4 border-t border-border">
-      {!open ? (
-        <button
-          onClick={() => setOpen(true)}
-          className="text-xs text-ink-faint hover:text-ink cursor-pointer mx-auto block"
-        >
-          ⚙️ Điều khiển chủ phòng
-        </button>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {confirmEnd ? (
-            <div className="rounded-xl border border-border bg-surface-2 p-3">
-              <p className="text-sm text-ink mb-2">Kết thúc ván ngay bây giờ? Người điểm cao nhất sẽ thắng.</p>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setConfirmEnd(false)}>Không</Button>
-                <Button
-                  variant="danger"
-                  full
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    await finishGameEarly({ code: room.code, hostId: identity.playerId });
-                  }}
-                >
-                  {busy ? "…" : "Kết thúc & xem kết quả"}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <button
-                onClick={() => nextTurn({ code: room.code, playerId: identity.playerId })}
-                className="text-sm text-ink-soft hover:text-ink cursor-pointer text-left px-1"
-              >
-                ⏭️ Bỏ qua lượt này (nếu người kể chuyện rời đi / bị kẹt)
-              </button>
-              <button
-                onClick={() => setConfirmEnd(true)}
-                className="text-sm text-[color:var(--accent-ink)] hover:underline cursor-pointer text-left px-1"
-              >
-                🏁 Kết thúc sớm ván này
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-xs text-ink-faint hover:text-ink cursor-pointer mx-auto mt-1"
-              >
-                đóng
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 type Ctx = GameProps & {
   storytellerId: string | null;
   isStoryteller: boolean;
   isHost: boolean;
   nameOf: (id: string | null) => string;
+  t: TFn;
 };
 
+function levelWord(t: TFn, level: string | null): string {
+  return level === "deep" ? t("level.deep_word") : t("level.shallow_word");
+}
+
 // --------------------------------------------------------------------------
-// Board: scoreboard + round context
-// --------------------------------------------------------------------------
-function Board({ room, players, storytellerId, identity, nameOf }: Ctx) {
+function Board({ room, players, storytellerId, identity, nameOf, t }: Ctx) {
   const ranked = [...players].sort((a, b) => b.score - a.score);
   const meIsStory = identity.playerId === storytellerId;
   return (
     <Card className="!p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-mono uppercase tracking-wider text-ink-faint">
-          Vòng {room.round} · điểm thắng {room.settings.max_score}
+          {t("board.round", { n: room.round, max: room.settings.max_score })}
         </span>
         <span
           className="text-xs font-semibold px-2 py-0.5 rounded-md"
           style={{ background: "var(--accent-soft)", color: "var(--accent-ink)" }}
         >
-          {meIsStory ? "Bạn kể chuyện 🎙️" : `Kể chuyện: ${nameOf(storytellerId)}`}
+          {meIsStory ? t("board.youStory") : t("board.storyteller", { name: nameOf(storytellerId) })}
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -167,10 +109,7 @@ function Board({ room, players, storytellerId, identity, nameOf }: Ctx) {
             <span
               key={p.id}
               className="inline-flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-lg border"
-              style={{
-                borderColor: me ? "var(--accent)" : "var(--border)",
-                background: "var(--surface-2)",
-              }}
+              style={{ borderColor: me ? "var(--accent)" : "var(--border)", background: "var(--surface-2)" }}
             >
               {isStory ? "🎙️" : ""}
               <span className="text-ink font-medium">{p.name}</span>
@@ -192,28 +131,23 @@ function WaitingCard({ text }: { text: string }) {
   );
 }
 
-function QuestionBanner({ text }: { text: string }) {
+function QuestionBanner({ text, label }: { text: string; label: string }) {
   return (
-    <div
-      className="rounded-2xl p-4 mb-4 border"
-      style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}
-    >
-      <p className="text-xs font-mono uppercase tracking-wider text-accent-ink mb-1">Câu hỏi</p>
+    <div className="rounded-2xl p-4 mb-4 border" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
+      <p className="text-xs font-mono uppercase tracking-wider text-accent-ink mb-1">{label}</p>
       <p className="text-ink font-display font-semibold text-lg leading-snug">{text}</p>
     </div>
   );
 }
 
 // --------------------------------------------------------------------------
-// Phase 1: theme selection
-// --------------------------------------------------------------------------
-function ThemePhase({ room, identity, isStoryteller, nameOf, storytellerId }: Ctx) {
+function ThemePhase({ room, identity, isStoryteller, nameOf, storytellerId, t }: Ctx) {
   const [busy, setBusy] = useState<string | null>(null);
-  if (!isStoryteller) return <WaitingCard text={`${nameOf(storytellerId)} đang chọn chủ đề…`} />;
+  if (!isStoryteller) return <WaitingCard text={t("wait.theme", { name: nameOf(storytellerId) })} />;
   return (
     <div>
-      <h2 className="font-display font-semibold text-ink text-xl mb-1">Chọn chủ đề</h2>
-      <p className="text-ink-soft text-sm mb-4">Bạn là người kể chuyện vòng này.</p>
+      <h2 className="font-display font-semibold text-ink text-xl mb-1">{t("theme.title")}</h2>
+      <p className="text-ink-soft text-sm mb-4">{t("theme.subtitle")}</p>
       <div className="grid grid-cols-2 gap-2.5">
         {DEFAULT_THEMES.map((theme) => (
           <button
@@ -234,15 +168,13 @@ function ThemePhase({ room, identity, isStoryteller, nameOf, storytellerId }: Ct
 }
 
 // --------------------------------------------------------------------------
-// Phase 2: level selection
-// --------------------------------------------------------------------------
-function LevelPhase({ room, identity, isStoryteller, nameOf, storytellerId }: Ctx) {
+function LevelPhase({ room, identity, isStoryteller, nameOf, storytellerId, t }: Ctx) {
   const [busy, setBusy] = useState(false);
-  if (!isStoryteller) return <WaitingCard text={`${nameOf(storytellerId)} đang chọn mức độ…`} />;
+  if (!isStoryteller) return <WaitingCard text={t("wait.level", { name: nameOf(storytellerId) })} />;
   return (
     <div>
-      <p className="text-sm text-ink-soft mb-1">Chủ đề: <strong className="text-ink">{room.selected_theme}</strong></p>
-      <h2 className="font-display font-semibold text-ink text-xl mb-4">Chọn mức độ</h2>
+      <p className="text-sm text-ink-soft mb-1">{t("level.themeIs", { theme: room.selected_theme ?? "" })}</p>
+      <h2 className="font-display font-semibold text-ink text-xl mb-4">{t("level.title")}</h2>
       <div className="flex flex-col gap-3">
         {LEVELS.map((lvl) => (
           <button
@@ -256,13 +188,13 @@ function LevelPhase({ room, identity, isStoryteller, nameOf, storytellerId }: Ct
           >
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-xl">{lvl.emoji}</span>
-              <span className="text-ink font-semibold">{lvl.label}</span>
+              <span className="text-ink font-semibold">{t(`level.${lvl.key}`)}</span>
             </div>
-            <p className="text-xs text-ink-faint">{lvl.hint}</p>
+            <p className="text-xs text-ink-faint">{t(`level.${lvl.key}_hint`)}</p>
           </button>
         ))}
       </div>
-      <BackRow code={room.code} playerId={identity.playerId} to="theme_selection" label="← Đổi chủ đề" />
+      <BackRow code={room.code} playerId={identity.playerId} to="theme_selection" label={t("back.theme")} />
     </div>
   );
 }
@@ -279,9 +211,7 @@ function BackRow({ code, playerId, to, label }: { code: string; playerId: string
 }
 
 // --------------------------------------------------------------------------
-// Phase 3: question (Phase 2 = typed manually; AI comes in Phase 3)
-// --------------------------------------------------------------------------
-function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }: Ctx) {
+function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId, t }: Ctx) {
   const question = room.question?.question ?? "";
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -289,7 +219,6 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
   const [busy, setBusy] = useState<null | "gen" | "regen" | "confirm">(null);
   const requested = useRef(false);
 
-  // Auto-generate the first question once, when the storyteller lands here.
   useEffect(() => {
     if (!isStoryteller || question || requested.current) return;
     requested.current = true;
@@ -300,7 +229,7 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
     });
   }, [isStoryteller, question, room.code, identity.playerId]);
 
-  if (!isStoryteller) return <WaitingCard text={`${nameOf(storytellerId)} đang soạn câu hỏi…`} />;
+  if (!isStoryteller) return <WaitingCard text={t("wait.question", { name: nameOf(storytellerId) })} />;
 
   async function regen() {
     setError(null);
@@ -323,9 +252,9 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
   const header = (
     <>
       <p className="text-sm text-ink-soft mb-1">
-        {room.selected_theme} · {room.selected_level === "deep" ? "Sâu sắc 🌊" : "Nhẹ nhàng 🫧"}
+        {room.selected_theme} · {levelWord(t, room.selected_level)}
       </p>
-      <h2 className="font-display font-semibold text-ink text-xl mb-3">Câu hỏi cho vòng này</h2>
+      <h2 className="font-display font-semibold text-ink text-xl mb-3">{t("q.title")}</h2>
     </>
   );
 
@@ -335,7 +264,7 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
         {header}
         <Card className="text-center py-8">
           <div className="text-2xl mb-2 animate-pulse">🤖</div>
-          <p className="text-ink-soft text-sm">AI đang nghĩ câu hỏi…</p>
+          <p className="text-ink-soft text-sm">{t("q.thinking")}</p>
         </Card>
       </div>
     );
@@ -353,11 +282,11 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
           autoFocus
           className="w-full bg-surface border border-border-strong rounded-xl px-3.5 py-3 text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent resize-none"
         />
-        {error ? <div className="mt-3"><Notice>{error}</Notice></div> : null}
+        {error ? <div className="mt-3"><Notice>{t(error)}</Notice></div> : null}
         <div className="flex gap-2 mt-3">
-          <Button variant="secondary" onClick={() => setEditing(false)}>Huỷ</Button>
+          <Button variant="secondary" onClick={() => setEditing(false)}>{t("q.cancel")}</Button>
           <Button full onClick={() => confirm(editText)} disabled={busy === "confirm" || editText.trim().length < 4}>
-            {busy === "confirm" ? "…" : "Dùng câu này →"}
+            {busy === "confirm" ? "…" : t("q.use")}
           </Button>
         </div>
       </div>
@@ -367,12 +296,12 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
   return (
     <div>
       {header}
-      <QuestionBanner text={question || "…"} />
-      {error ? <div className="mb-3"><Notice>{error}</Notice></div> : null}
+      <QuestionBanner text={question || "…"} label={t("phase.question")} />
+      {error ? <div className="mb-3"><Notice>{t(error)}</Notice></div> : null}
 
       <div className="grid grid-cols-2 gap-2 mb-2">
         <Button variant="secondary" onClick={regen} disabled={!!busy || !question}>
-          {busy === "regen" ? "Đang đổi…" : "🔄 Câu khác"}
+          {busy === "regen" ? t("q.regening") : t("q.regen")}
         </Button>
         <Button
           variant="secondary"
@@ -382,21 +311,19 @@ function QuestionPhase({ room, identity, isStoryteller, nameOf, storytellerId }:
           }}
           disabled={!!busy || !question}
         >
-          ✏️ Sửa
+          {t("q.edit")}
         </Button>
       </div>
       <Button size="lg" full onClick={() => confirm(question)} disabled={!!busy || !question}>
-        {busy === "confirm" ? "…" : "Dùng câu này →"}
+        {busy === "confirm" ? "…" : t("q.use")}
       </Button>
-      <BackRow code={room.code} playerId={identity.playerId} to="level_selection" label="← Đổi mức độ" />
+      <BackRow code={room.code} playerId={identity.playerId} to="level_selection" label={t("back.level")} />
     </div>
   );
 }
 
 // --------------------------------------------------------------------------
-// Phase 4: answer entry
-// --------------------------------------------------------------------------
-function AnswerPhase({ room, players, submissions, identity, isHost }: Ctx) {
+function AnswerPhase({ room, players, submissions, identity, isHost, t }: Ctx) {
   const mine = submissions.find((s) => s.player_id === identity.playerId);
   const [text, setText] = useState("");
   const [editing, setEditing] = useState(!mine);
@@ -428,14 +355,12 @@ function AnswerPhase({ room, players, submissions, identity, isHost }: Ctx) {
 
   return (
     <div>
-      <QuestionBanner text={question} />
-      <p className="text-sm text-ink-soft mb-3">
-        Mọi người viết một câu trả lời (kể cả người kể chuyện). Đừng để lộ ai viết gì nhé.
-      </p>
+      <QuestionBanner text={question} label={t("phase.question")} />
+      <p className="text-sm text-ink-soft mb-3">{t("answer.info")}</p>
 
       {mine && !editing ? (
         <Card className="mb-3">
-          <p className="text-xs text-ink-faint mb-1">Câu trả lời của bạn</p>
+          <p className="text-xs text-ink-faint mb-1">{t("answer.yours")}</p>
           <p className="text-ink font-medium">{mine.text}</p>
           <button
             onClick={() => {
@@ -444,7 +369,7 @@ function AnswerPhase({ room, players, submissions, identity, isHost }: Ctx) {
             }}
             className="mt-2 text-sm text-accent-ink cursor-pointer"
           >
-            Sửa
+            {t("answer.editShort")}
           </button>
         </Card>
       ) : (
@@ -452,35 +377,31 @@ function AnswerPhase({ room, players, submissions, identity, isHost }: Ctx) {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Câu trả lời của bạn…"
+            placeholder={t("answer.ph")}
             rows={2}
             maxLength={200}
             className="w-full bg-surface border border-border-strong rounded-xl px-3.5 py-3 text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent resize-none"
           />
-          {error ? <div className="mt-3"><Notice>{error}</Notice></div> : null}
+          {error ? <div className="mt-3"><Notice>{t(error)}</Notice></div> : null}
           <div className="flex justify-end mt-2">
-            <button
-              onClick={suggest}
-              disabled={suggesting}
-              className="text-sm text-accent-ink hover:underline cursor-pointer disabled:opacity-50"
-            >
-              {suggesting ? "Đang nghĩ…" : "✨ Gợi ý từ AI"}
+            <button onClick={suggest} disabled={suggesting} className="text-sm text-accent-ink hover:underline cursor-pointer disabled:opacity-50">
+              {suggesting ? t("answer.suggesting") : t("answer.suggest")}
             </button>
           </div>
           <Button size="lg" full className="mt-1" onClick={send} disabled={busy || !text.trim()}>
-            {busy ? "…" : mine ? "Cập nhật" : "Nộp câu trả lời →"}
+            {busy ? "…" : mine ? t("answer.update") : t("answer.submit")}
           </Button>
         </>
       )}
 
-      <ProgressRow done={submissions.length} total={players.length} label="đã trả lời" />
+      <ProgressRow done={submissions.length} total={players.length} label={t("progress.answered")} />
 
       {isHost && submissions.length >= 2 ? (
         <button
           onClick={() => forceGuessing({ code: room.code, hostId: identity.playerId })}
           className="mt-3 w-full text-center text-sm text-ink-faint hover:text-accent-ink cursor-pointer"
         >
-          (Chủ phòng) Bắt đầu đoán ngay
+          {t("answer.forceGuess")}
         </button>
       ) : null}
     </div>
@@ -488,9 +409,7 @@ function AnswerPhase({ room, players, submissions, identity, isHost }: Ctx) {
 }
 
 // --------------------------------------------------------------------------
-// Phase 5: guessing
-// --------------------------------------------------------------------------
-function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost }: Ctx) {
+function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost, t }: Ctx) {
   const options = round?.options ?? [];
   const myGuess = guesses.find((g) => g.player_id === identity.playerId);
   const listenerTotal = room.storyteller_order.length - 1;
@@ -504,14 +423,14 @@ function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost }: C
 
   return (
     <div>
-      <QuestionBanner text={room.question?.question ?? ""} />
+      <QuestionBanner text={room.question?.question ?? ""} label={t("phase.question")} />
       {isStoryteller ? (
         <Card className="mb-3 text-center py-6">
           <div className="text-2xl mb-1">🕵️</div>
-          <p className="text-ink-soft text-sm">Mọi người đang đoán đâu là câu của bạn…</p>
+          <p className="text-ink-soft text-sm">{t("guess.storyWait")}</p>
         </Card>
       ) : (
-        <p className="text-sm text-ink-soft mb-3">Đâu là câu trả lời của người kể chuyện?</p>
+        <p className="text-sm text-ink-soft mb-3">{t("guess.prompt")}</p>
       )}
 
       <div className="flex flex-col gap-2.5">
@@ -533,21 +452,21 @@ function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost }: C
             >
               <span className="font-mono font-semibold text-ink-faint">{opt.label}</span>
               <span className="text-ink flex-1">{opt.text}</span>
-              {mineOwn ? <span className="text-xs text-ink-faint">của bạn</span> : null}
+              {mineOwn ? <span className="text-xs text-ink-faint">{t("guess.yourOwn")}</span> : null}
               {picked ? <span className="text-accent-ink">✓</span> : null}
             </button>
           );
         })}
       </div>
 
-      <ProgressRow done={guesses.length} total={listenerTotal} label="đã đoán" />
+      <ProgressRow done={guesses.length} total={listenerTotal} label={t("progress.guessed")} />
 
       {isHost && guesses.length >= 1 ? (
         <button
           onClick={() => forceReveal({ code: room.code, hostId: identity.playerId })}
           className="mt-3 w-full text-center text-sm text-ink-faint hover:text-accent-ink cursor-pointer"
         >
-          (Chủ phòng) Lật bài ngay
+          {t("guess.forceReveal")}
         </button>
       ) : null}
     </div>
@@ -555,15 +474,12 @@ function GuessPhase({ room, round, guesses, identity, isStoryteller, isHost }: C
 }
 
 // --------------------------------------------------------------------------
-// Phase 6: reveal & scoring
-// --------------------------------------------------------------------------
-function RevealPhase({ room, round, players, identity, isStoryteller, isHost, nameOf, storytellerId }: Ctx) {
+function RevealPhase({ room, round, players, identity, isStoryteller, isHost, nameOf, storytellerId, t }: Ctx) {
   const options = round?.options ?? [];
   const summary = round?.summary;
   const deltas = summary?.deltas ?? {};
   const guessesMap = summary?.guesses ?? {};
 
-  // group guessers by chosen submission
   const guessersBy: Record<string, string[]> = {};
   for (const [pid, sid] of Object.entries(guessesMap)) {
     (guessersBy[sid] ??= []).push(nameOf(pid));
@@ -573,8 +489,8 @@ function RevealPhase({ room, round, players, identity, isStoryteller, isHost, na
 
   return (
     <div>
-      <QuestionBanner text={room.question?.question ?? ""} />
-      <h2 className="font-display font-semibold text-ink text-xl mb-3">Lật bài</h2>
+      <QuestionBanner text={room.question?.question ?? ""} label={t("phase.question")} />
+      <h2 className="font-display font-semibold text-ink text-xl mb-3">{t("reveal.title")}</h2>
 
       <div className="flex flex-col gap-2.5 mb-4">
         {options.map((opt) => {
@@ -592,15 +508,13 @@ function RevealPhase({ room, round, players, identity, isStoryteller, isHost, na
                 <span className="font-mono font-semibold text-ink-faint">{opt.label}</span>
                 <span className="text-ink flex-1">{opt.text}</span>
                 {opt.is_storyteller ? (
-                  <span className="text-xs font-semibold" style={{ color: "var(--good)" }}>
-                    ✓ câu thật
-                  </span>
+                  <span className="text-xs font-semibold" style={{ color: "var(--good)" }}>{t("reveal.trueAnswer")}</span>
                 ) : (
                   <span className="text-xs text-ink-faint">{nameOf(opt.owner_id)}</span>
                 )}
               </div>
               {guessers.length > 0 ? (
-                <p className="text-xs text-ink-faint mt-1.5">đoán bởi: {guessers.join(", ")}</p>
+                <p className="text-xs text-ink-faint mt-1.5">{t("reveal.guessedBy", { names: guessers.join(", ") })}</p>
               ) : null}
             </div>
           );
@@ -608,7 +522,7 @@ function RevealPhase({ room, round, players, identity, isStoryteller, isHost, na
       </div>
 
       <Card className="mb-4">
-        <p className="text-xs font-mono uppercase tracking-wider text-ink-faint mb-2">Điểm vòng này</p>
+        <p className="text-xs font-mono uppercase tracking-wider text-ink-faint mb-2">{t("reveal.points")}</p>
         <ul className="flex flex-col gap-1">
           {players.map((p) => {
             const d = deltas[p.id] ?? 0;
@@ -618,10 +532,7 @@ function RevealPhase({ room, round, players, identity, isStoryteller, isHost, na
                   {p.name}
                   {p.id === storytellerId ? " 🎙️" : ""}
                 </span>
-                <span
-                  className="font-mono font-semibold tabular-nums"
-                  style={{ color: d > 0 ? "var(--good)" : "var(--ink-faint)" }}
-                >
+                <span className="font-mono font-semibold tabular-nums" style={{ color: d > 0 ? "var(--good)" : "var(--ink-faint)" }}>
                   {d > 0 ? `+${d}` : "0"}
                 </span>
               </li>
@@ -630,43 +541,40 @@ function RevealPhase({ room, round, players, identity, isStoryteller, isHost, na
         </ul>
       </Card>
 
-      {room.winners.length > 0 ? (
-        <Notice tone="info">🏆 Có người đạt điểm thắng! Bấm tiếp để xem kết quả.</Notice>
-      ) : null}
+      {room.winners.length > 0 ? <Notice tone="info">{t("reveal.winnerNote")}</Notice> : null}
 
       {canAdvance ? (
-        <Button
-          size="lg"
-          full
-          className="mt-3"
-          onClick={() => nextTurn({ code: room.code, playerId: identity.playerId })}
-        >
-          {room.winners.length > 0 ? "Xem kết quả →" : "Vòng tiếp theo →"}
+        <Button size="lg" full className="mt-3" onClick={() => nextTurn({ code: room.code, playerId: identity.playerId })}>
+          {room.winners.length > 0 ? t("reveal.seeResults") : t("reveal.nextRound")}
         </Button>
       ) : (
-        <p className="text-center text-sm text-ink-soft mt-3">Chờ {nameOf(storytellerId)} sang vòng mới…</p>
+        <p className="text-center text-sm text-ink-soft mt-3">{t("reveal.waitNext", { name: nameOf(storytellerId) })}</p>
       )}
     </div>
   );
 }
 
 // --------------------------------------------------------------------------
-// Phase 7: results
-// --------------------------------------------------------------------------
-function ResultsView({ room, players, identity, isHost }: Ctx) {
+function ResultsView({ room, players, identity, isHost, t }: Ctx) {
   const ranked = [...players].sort((a, b) => b.score - a.score);
   const top = ranked[0]?.score ?? 0;
   const winners = ranked.filter((p) => p.score === top && top > 0);
+  const reason =
+    room.end_reason === "reason.winner"
+      ? t("results.reasonWinner", { max: room.settings.max_score })
+      : room.end_reason === "reason.host"
+        ? t("results.reasonHost")
+        : t("results.reasonDefault");
 
   return (
-    <PageShellInner>
+    <div>
       <div className="text-center py-4">
         <div className="text-5xl mb-2">🏆</div>
-        <p className="text-xs font-mono uppercase tracking-widest text-ink-faint">Kết thúc</p>
+        <p className="text-xs font-mono uppercase tracking-widest text-ink-faint">{t("results.over")}</p>
         <h2 className="font-display font-semibold text-ink text-2xl mt-1">
-          {winners.map((w) => w.name).join(" + ") || "Không có người thắng"}
+          {winners.map((w) => w.name).join(" + ") || t("results.noWinner")}
         </h2>
-        <p className="text-ink-soft text-sm mt-1">{room.end_reason ?? "Ván đã kết thúc."}</p>
+        <p className="text-ink-soft text-sm mt-1">{reason}</p>
       </div>
 
       <Card className="!p-2 mb-4">
@@ -686,22 +594,71 @@ function ResultsView({ room, players, identity, isHost }: Ctx) {
       </Card>
 
       {isHost ? (
-        <Button
-          size="lg"
-          full
-          onClick={() => endGame({ code: room.code, hostId: identity.playerId })}
-        >
-          Về lobby (chơi lại)
+        <Button size="lg" full onClick={() => endGame({ code: room.code, hostId: identity.playerId })}>
+          {t("results.backLobby")}
         </Button>
       ) : (
-        <p className="text-center text-sm text-ink-soft">Chờ chủ phòng bắt đầu ván mới…</p>
+        <p className="text-center text-sm text-ink-soft">{t("results.waitHost")}</p>
       )}
-    </PageShellInner>
+    </div>
   );
 }
 
-function PageShellInner({ children }: { children: React.ReactNode }) {
-  return <div>{children}</div>;
+// --------------------------------------------------------------------------
+function HostControls({ room, identity, t }: Ctx) {
+  const [open, setOpen] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="mt-8 pt-4 border-t border-border">
+      {!open ? (
+        <button onClick={() => setOpen(true)} className="text-xs text-ink-faint hover:text-ink cursor-pointer mx-auto block">
+          {t("hc.controls")}
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {confirmEnd ? (
+            <div className="rounded-xl border border-border bg-surface-2 p-3">
+              <p className="text-sm text-ink mb-2">{t("hc.confirmEnd")}</p>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setConfirmEnd(false)}>{t("hc.no")}</Button>
+                <Button
+                  variant="danger"
+                  full
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    await finishGameEarly({ code: room.code, hostId: identity.playerId });
+                  }}
+                >
+                  {busy ? "…" : t("hc.endConfirm")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => nextTurn({ code: room.code, playerId: identity.playerId })}
+                className="text-sm text-ink-soft hover:text-ink cursor-pointer text-left px-1"
+              >
+                {t("hc.skip")}
+              </button>
+              <button
+                onClick={() => setConfirmEnd(true)}
+                className="text-sm text-[color:var(--accent-ink)] hover:underline cursor-pointer text-left px-1"
+              >
+                {t("hc.endEarly")}
+              </button>
+              <button onClick={() => setOpen(false)} className="text-xs text-ink-faint hover:text-ink cursor-pointer mx-auto mt-1">
+                {t("hc.close")}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // --------------------------------------------------------------------------
@@ -714,10 +671,7 @@ function ProgressRow({ done, total, label }: { done: number; total: number; labe
         <span className="font-mono tabular-nums">{done}/{total}</span>
       </div>
       <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: "var(--accent)" }}
-        />
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
       </div>
     </div>
   );

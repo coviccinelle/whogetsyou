@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startGame, updateSettings, removePlayer, leaveRoom } from "@/app/actions";
 import { forgetIdentity } from "@/lib/identity";
+import { useT } from "@/lib/i18n";
 import {
   MIN_PLAYERS_TO_START,
   SUPPORTED_LANGUAGES,
@@ -27,6 +28,7 @@ export default function Lobby({
 }) {
   const code = room.code;
   const router = useRouter();
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -81,22 +83,20 @@ export default function Lobby({
 
       <Card className="text-center mb-4">
         <p className="text-xs uppercase tracking-widest text-ink-faint font-mono mb-2">{room.name}</p>
-        <div className="font-mono font-semibold text-ink text-4xl tracking-[0.4em] pl-[0.4em]">
-          {code}
-        </div>
+        <div className="font-mono font-semibold text-ink text-4xl tracking-[0.4em] pl-[0.4em]">{code}</div>
         <button
           onClick={copyShare}
           className="mt-3 text-sm text-accent-ink font-semibold cursor-pointer hover:underline"
         >
-          {copied ? "Đã sao chép link ✓" : "Sao chép link mời"}
+          {copied ? t("lobby.copied") : t("lobby.copyLink")}
         </button>
       </Card>
 
       <div className="flex items-center justify-between px-1 mb-2">
         <h2 className="font-display font-semibold text-ink text-lg">
-          Người chơi <span className="text-ink-faint font-sans text-sm">({players.length})</span>
+          {t("lobby.players")} <span className="text-ink-faint font-sans text-sm">({players.length})</span>
         </h2>
-        {!canStart ? <span className="text-xs text-ink-faint">cần ≥ {MIN_PLAYERS_TO_START}</span> : null}
+        {!canStart ? <span className="text-xs text-ink-faint">{t("lobby.needMin", { n: MIN_PLAYERS_TO_START })}</span> : null}
       </div>
       <Card className="!p-2 mb-4">
         <ul className="flex flex-col">
@@ -112,19 +112,18 @@ export default function Lobby({
                 </span>
                 <span className="flex-1 text-ink font-medium truncate">
                   {p.name}
-                  {me ? <span className="text-ink-faint font-normal"> (bạn)</span> : null}
+                  {me ? <span className="text-ink-faint font-normal"> {t("lobby.you")}</span> : null}
                 </span>
                 {p.role === "host" ? (
                   <span className="text-xs font-mono text-accent-ink bg-accent-soft px-2 py-0.5 rounded-md">
-                    chủ phòng
+                    {t("lobby.host")}
                   </span>
                 ) : isHost ? (
                   <button
                     onClick={() => handleRemove(p.id)}
                     className="text-xs text-ink-faint hover:text-accent-ink cursor-pointer"
-                    aria-label={`Xoá ${p.name}`}
                   >
-                    xoá
+                    {t("lobby.remove")}
                   </button>
                 ) : null}
               </li>
@@ -135,19 +134,19 @@ export default function Lobby({
 
       <Card className="mb-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-ink-soft">Ngôn ngữ</span>
+          <span className="text-sm text-ink-soft">{t("field.language")}</span>
           <span className="text-sm text-ink font-medium">
             {LANGUAGE_FLAGS[room.settings.language]} {SUPPORTED_LANGUAGES[room.settings.language]}
           </span>
         </div>
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-ink-soft">Model AI</span>
+          <span className="text-sm text-ink-soft">{t("lobby.model")}</span>
           <span className="text-sm text-ink font-medium">
             {SUPPORTED_LLM_MODELS[room.settings.llm_model] ?? room.settings.llm_model}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-ink-soft">Điểm thắng</span>
+          <span className="text-sm text-ink-soft">{t("lobby.winScore")}</span>
           {isHost ? (
             <div className="flex items-center gap-2">
               <button
@@ -172,21 +171,21 @@ export default function Lobby({
         </div>
       </Card>
 
-      {error ? <div className="mb-4"><Notice>{error}</Notice></div> : null}
+      {error ? <div className="mb-4"><Notice>{t(error, { n: MIN_PLAYERS_TO_START })}</Notice></div> : null}
 
       {isHost ? (
         <Button size="lg" full onClick={handleStart} disabled={!canStart || busy}>
-          {busy ? "Đang bắt đầu…" : canStart ? "Bắt đầu ván →" : `Chờ đủ ${MIN_PLAYERS_TO_START} người`}
+          {busy ? t("lobby.starting") : canStart ? t("lobby.start") : t("lobby.waitMin", { n: MIN_PLAYERS_TO_START })}
         </Button>
       ) : (
-        <div className="text-center text-sm text-ink-soft py-2">Chờ chủ phòng bắt đầu…</div>
+        <div className="text-center text-sm text-ink-soft py-2">{t("lobby.waitHost")}</div>
       )}
 
       <button
         onClick={handleLeave}
         className="mt-4 text-center text-xs text-ink-faint hover:text-accent-ink cursor-pointer"
       >
-        {isHost ? "Đóng phòng & rời đi" : "Rời phòng"}
+        {isHost ? t("lobby.closeRoom") : t("lobby.leaveRoom")}
       </button>
     </PageShell>
   );

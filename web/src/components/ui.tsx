@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useT } from "@/lib/i18n";
 
 // ---- Page shell ----------------------------------------------------
 export function PageShell({ children }: { children: ReactNode }) {
@@ -128,6 +131,7 @@ export function Notice({
 
 // ---- Live badge ----------------------------------------------------
 export function LiveBadge({ live }: { live: boolean }) {
+  const t = useT();
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-mono text-ink-faint">
       <span
@@ -137,7 +141,7 @@ export function LiveBadge({ live }: { live: boolean }) {
           boxShadow: live ? "0 0 0 3px var(--cool-soft)" : "none",
         }}
       />
-      {live ? "trực tiếp" : "đang kết nối…"}
+      {live ? t("live.on") : t("live.off")}
     </span>
   );
 }

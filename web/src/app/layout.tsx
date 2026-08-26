@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { LangProvider } from "@/lib/i18n";
 
 const display = Fraunces({
   variable: "--font-display",
@@ -35,7 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <LangProvider>{children}</LangProvider>
+      </body>
     </html>
   );
 }

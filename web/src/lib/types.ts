@@ -1,6 +1,6 @@
 // Shared domain types — mirror the Supabase tables.
 
-export type Language = "en" | "vn" | "fr" | "es" | "de";
+export type Language = "en" | "vn";
 export type Level = "shallow" | "deep";
 export type PlayerRole = "host" | "joiner";
 
@@ -59,22 +59,16 @@ export interface Player {
 export const SUPPORTED_LANGUAGES: Record<Language, string> = {
   en: "English",
   vn: "Tiếng Việt",
-  fr: "Français",
-  es: "Español",
-  de: "Deutsch",
 };
 
 export const LANGUAGE_FLAGS: Record<Language, string> = {
   en: "🇬🇧",
   vn: "🇻🇳",
-  fr: "🇫🇷",
-  es: "🇪🇸",
-  de: "🇩🇪",
 };
 
 // A trimmed model list — expand later to match the old Python catalog.
 export const SUPPORTED_LLM_MODELS: Record<string, string> = {
-  "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite (nhanh, mặc định)",
+  "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite · fast",
   "gemini-3.6-flash": "Gemini 3.6 Flash",
   "gemini-3.7-flash": "Gemini 3.7 Flash",
   "gemini-3.5-flash": "Gemini 3.5 Flash",

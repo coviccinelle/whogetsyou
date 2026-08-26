@@ -18,11 +18,11 @@ function resolve(model: string): Resolved {
   const isGemini = model.toLowerCase().startsWith("gemini");
   if (isGemini) {
     const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) throw new Error("GOOGLE_API_KEY chưa được đặt (cần cho model Gemini).");
+    if (!apiKey) throw new Error("GOOGLE_API_KEY is not set (required for Gemini models).");
     return { client: new OpenAI({ apiKey, baseURL: GEMINI_BASE_URL }), model };
   }
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY chưa được đặt (cần cho model OpenAI).");
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set (required for OpenAI models).");
   return { client: new OpenAI({ apiKey }), model };
 }
 
@@ -53,7 +53,7 @@ export async function callStructured<T>(
     },
   });
   const content = completion.choices[0]?.message?.content ?? "";
-  if (!content) throw new Error("LLM trả về rỗng.");
+  if (!content) throw new Error("LLM returned empty content.");
   return JSON.parse(content) as T;
 }
 

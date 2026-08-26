@@ -85,11 +85,11 @@ export async function selectTheme(input: {
   theme: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
-    return { ok: false, error: "Chỉ người kể chuyện mới chọn được." };
+    return { ok: false, error: "err.storytellerOnly" };
   if (!DEFAULT_THEMES.includes(input.theme))
-    return { ok: false, error: "Chủ đề không hợp lệ." };
+    return { ok: false, error: "err.badTheme" };
 
   const supabase = getSupabaseAdmin();
   await supabase
@@ -108,11 +108,11 @@ export async function selectLevel(input: {
   level: Level;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
-    return { ok: false, error: "Chỉ người kể chuyện mới chọn được." };
+    return { ok: false, error: "err.storytellerOnly" };
   if (input.level !== "shallow" && input.level !== "deep")
-    return { ok: false, error: "Mức độ không hợp lệ." };
+    return { ok: false, error: "err.badLevel" };
 
   const supabase = getSupabaseAdmin();
   const round = await ensureRound(room);
@@ -136,11 +136,11 @@ export async function setQuestion(input: {
   question: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
-    return { ok: false, error: "Chỉ người kể chuyện mới đặt câu hỏi." };
+    return { ok: false, error: "err.storytellerOnlyQ" };
   const text = input.question.trim();
-  if (text.length < 4) return { ok: false, error: "Câu hỏi hơi ngắn." };
+  if (text.length < 4) return { ok: false, error: "err.questionShort" };
 
   const supabase = getSupabaseAdmin();
   const round = await ensureRound(room);
@@ -167,9 +167,9 @@ export async function backToPhase(input: {
   phase: "theme_selection" | "level_selection";
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
-    return { ok: false, error: "Chỉ người kể chuyện mới làm được." };
+    return { ok: false, error: "err.storytellerOnly" };
   const supabase = getSupabaseAdmin();
   const patch: Record<string, unknown> = { phase: input.phase, updated_at: new Date().toISOString() };
   if (input.phase === "theme_selection") {
@@ -191,14 +191,14 @@ export async function submitAnswer(input: {
   text: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
-  if (room.phase !== "answer_entry") return { ok: false, error: "Chưa tới lúc trả lời." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
+  if (room.phase !== "answer_entry") return { ok: false, error: "err.notAnswerTime" };
   const text = input.text.trim();
-  if (!text) return { ok: false, error: "Câu trả lời trống." };
+  if (!text) return { ok: false, error: "err.emptyAnswer" };
 
   const supabase = getSupabaseAdmin();
   const round = await getRound(room.id, room.round);
-  if (!round) return { ok: false, error: "Vòng chơi chưa sẵn sàng." };
+  if (!round) return { ok: false, error: "err.roundNotReady" };
 
   // Block exact-duplicate answers from other players.
   const { data: existingSubs } = await supabase
@@ -209,7 +209,7 @@ export async function submitAnswer(input: {
   const clash = (existingSubs ?? []).some(
     (s) => s.player_id !== input.playerId && norm(s.text) === norm(text),
   );
-  if (clash) return { ok: false, error: "Trùng câu trả lời của người khác — thử cách diễn đạt khác." };
+  if (clash) return { ok: false, error: "err.duplicateAnswer" };
 
   const isStoryteller = storytellerId(room) === input.playerId;
   const { error } = await supabase
@@ -244,11 +244,11 @@ export async function forceGuessing(input: {
   hostId: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (room.host_id !== input.hostId)
-    return { ok: false, error: "Chỉ chủ phòng mới ép được." };
+    return { ok: false, error: "err.hostForceOnly" };
   const round = await getRound(room.id, room.round);
-  if (!round) return { ok: false, error: "Vòng chơi chưa sẵn sàng." };
+  if (!round) return { ok: false, error: "err.roundNotReady" };
   await enterGuessing(room, round.id);
   return { ok: true, data: null };
 }
@@ -289,19 +289,19 @@ export async function submitGuess(input: {
   submissionId: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
-  if (room.phase !== "guessing") return { ok: false, error: "Chưa tới lúc đoán." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
+  if (room.phase !== "guessing") return { ok: false, error: "err.notGuessTime" };
   if (storytellerId(room) === input.playerId)
-    return { ok: false, error: "Người kể chuyện không đoán." };
+    return { ok: false, error: "err.storytellerNoGuess" };
 
   const supabase = getSupabaseAdmin();
   const round = await getRound(room.id, room.round);
-  if (!round) return { ok: false, error: "Vòng chơi chưa sẵn sàng." };
+  if (!round) return { ok: false, error: "err.roundNotReady" };
 
   const own = (round.options ?? []).find((o) => o.submission_id === input.submissionId);
-  if (!own) return { ok: false, error: "Lựa chọn không hợp lệ." };
+  if (!own) return { ok: false, error: "err.badOption" };
   if (own.owner_id === input.playerId)
-    return { ok: false, error: "Không thể chọn chính câu của bạn." };
+    return { ok: false, error: "err.cantPickOwn" };
 
   const { error } = await supabase
     .from("guesses")
@@ -333,11 +333,11 @@ export async function forceReveal(input: {
   hostId: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (room.host_id !== input.hostId)
-    return { ok: false, error: "Chỉ chủ phòng mới ép được." };
+    return { ok: false, error: "err.hostForceOnly" };
   const round = await getRound(room.id, room.round);
-  if (!round) return { ok: false, error: "Vòng chơi chưa sẵn sàng." };
+  if (!round) return { ok: false, error: "err.roundNotReady" };
   await enterReveal(room, round.id);
   return { ok: true, data: null };
 }
@@ -406,9 +406,9 @@ export async function nextTurn(input: {
   playerId: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   const allowed = storytellerId(room) === input.playerId || room.host_id === input.playerId;
-  if (!allowed) return { ok: false, error: "Chờ người kể chuyện sang vòng mới." };
+  if (!allowed) return { ok: false, error: "err.waitStorytellerNext" };
 
   const supabase = getSupabaseAdmin();
   if (room.winners.length > 0) {
@@ -416,7 +416,7 @@ export async function nextTurn(input: {
       .from("rooms")
       .update({
         phase: "results",
-        end_reason: `Có người đạt ${room.settings.max_score} điểm.`,
+        end_reason: "reason.winner",
         updated_at: new Date().toISOString(),
       })
       .eq("id", room.id);
@@ -455,9 +455,9 @@ export async function finishGameEarly(input: {
   hostId: string;
 }): Promise<ActionResult<null>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (room.host_id !== input.hostId)
-    return { ok: false, error: "Chỉ chủ phòng mới kết thúc được." };
+    return { ok: false, error: "err.hostEndOnly" };
 
   const supabase = getSupabaseAdmin();
   const { data: players } = await supabase
@@ -472,7 +472,7 @@ export async function finishGameEarly(input: {
     .update({
       phase: "results",
       winners,
-      end_reason: "Chủ phòng kết thúc sớm.",
+      end_reason: "reason.host",
       updated_at: new Date().toISOString(),
     })
     .eq("id", room.id);

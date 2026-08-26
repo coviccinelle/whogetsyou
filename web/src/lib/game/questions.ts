@@ -81,12 +81,12 @@ export async function generateCandidatePool(opts: {
       }
       valid.sort((a, b) => a.rank - b.rank);
       if (valid.length > 0) return valid.map((v) => v.c);
-      throw new Error("Không có câu hỏi hợp lệ trong kết quả.");
+      throw new Error("No valid question in the result.");
     } catch (err) {
       lastError = err;
     }
   }
-  throw new Error(`Không sinh được câu hỏi: ${lastError instanceof Error ? lastError.message : lastError}`);
+  throw new Error(`Failed to generate questions: ${lastError instanceof Error ? lastError.message : lastError}`);
 }
 
 export async function translateText(opts: {

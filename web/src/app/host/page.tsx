@@ -4,12 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createRoom } from "@/app/actions";
 import { rememberIdentity } from "@/lib/identity";
-import {
-  SUPPORTED_LANGUAGES,
-  SUPPORTED_LLM_MODELS,
-  LANGUAGE_FLAGS,
-  type Language,
-} from "@/lib/types";
+import { SUPPORTED_LLM_MODELS, type Language } from "@/lib/types";
+import { useT, useLang, LangToggle, LANGS, LANG_LABELS, LANG_FLAGS } from "@/lib/i18n";
 import {
   PageShell,
   Brand,
@@ -23,9 +19,11 @@ import {
 
 export default function HostPage() {
   const router = useRouter();
+  const t = useT();
+  const { lang } = useLang();
   const [hostName, setHostName] = useState("");
   const [roomName, setRoomName] = useState("");
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>(lang);
   const [model, setModel] = useState("gemini-3.5-flash-lite");
   const [maxScore, setMaxScore] = useState(100);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -52,64 +50,63 @@ export default function HostPage() {
 
   return (
     <PageShell>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <Brand small />
+        <LangToggle />
       </div>
-      <h1 className="font-display font-semibold text-ink text-2xl mb-1">Tạo phòng</h1>
-      <p className="text-ink-soft text-sm mb-6">
-        Bạn sẽ là chủ phòng — chọn ngôn ngữ, model và điểm mục tiêu.
-      </p>
+      <h1 className="font-display font-semibold text-ink text-2xl mb-1">{t("host.title")}</h1>
+      <p className="text-ink-soft text-sm mb-6">{t("host.subtitle")}</p>
 
       <Card>
         <div className="flex flex-col gap-4">
-          <Field label="Tên của bạn">
+          <Field label={t("field.yourName")}>
             <TextInput
               value={hostName}
               onChange={(e) => setHostName(e.target.value)}
-              placeholder="VD: Thảo"
+              placeholder={t("field.yourName_ph")}
               maxLength={40}
               autoFocus
             />
           </Field>
-          <Field label="Tên phòng">
+          <Field label={t("host.roomName")}>
             <TextInput
               value={roomName}
               onChange={(e) => setRoomName(e.target.value)}
-              placeholder="VD: Tối thứ 6"
+              placeholder={t("host.roomName_ph")}
               maxLength={40}
             />
           </Field>
 
-          <Field label="Ai được vào" hint={isPrivate ? "Chỉ người có mã mới vào được." : "Hiện ở danh sách phòng công khai để mọi người vào."}>
+          <Field label={t("host.whoCanJoin")} hint={isPrivate ? t("host.private_hint") : t("host.public_hint")}>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setIsPrivate(false)}
                 className={`rounded-xl px-3 py-2.5 text-sm font-semibold border transition ${!isPrivate ? "bg-accent text-white border-accent" : "bg-surface text-ink-soft border-border-strong"}`}
               >
-                🌐 Công khai
+                {t("host.public")}
               </button>
               <button
                 type="button"
                 onClick={() => setIsPrivate(true)}
                 className={`rounded-xl px-3 py-2.5 text-sm font-semibold border transition ${isPrivate ? "bg-accent text-white border-accent" : "bg-surface text-ink-soft border-border-strong"}`}
               >
-                🔒 Riêng tư
+                {t("host.private")}
               </button>
             </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Ngôn ngữ">
+            <Field label={t("field.language")}>
               <Select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
-                {(Object.keys(SUPPORTED_LANGUAGES) as Language[]).map((code) => (
+                {LANGS.map((code) => (
                   <option key={code} value={code}>
-                    {LANGUAGE_FLAGS[code]} {SUPPORTED_LANGUAGES[code]}
+                    {LANG_FLAGS[code]} {LANG_LABELS[code]}
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label="Điểm thắng">
+            <Field label={t("host.winScore")}>
               <TextInput
                 type="number"
                 inputMode="numeric"
@@ -121,7 +118,7 @@ export default function HostPage() {
             </Field>
           </div>
 
-          <Field label="Model AI" hint="Sinh câu hỏi. Có thể đổi sau.">
+          <Field label={t("host.model")} hint={t("host.model_hint")}>
             <Select value={model} onChange={(e) => setModel(e.target.value)}>
               {Object.entries(SUPPORTED_LLM_MODELS).map(([id, label]) => (
                 <option key={id} value={id}>
@@ -131,10 +128,10 @@ export default function HostPage() {
             </Select>
           </Field>
 
-          {error ? <Notice>{error}</Notice> : null}
+          {error ? <Notice>{t(error)}</Notice> : null}
 
           <Button size="lg" full onClick={handleCreate} disabled={busy}>
-            {busy ? "Đang tạo…" : "Tạo phòng →"}
+            {busy ? t("host.creating") : t("host.create")}
           </Button>
         </div>
       </Card>

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { joinRoom, listPublicRooms, type PublicRoom } from "@/app/actions";
 import { rememberIdentity } from "@/lib/identity";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { useT, LangToggle } from "@/lib/i18n";
 import { PageShell, Brand, Card, Button, Field, TextInput, Notice } from "@/components/ui";
 
 export default function JoinPage() {
   const router = useRouter();
+  const t = useT();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +18,6 @@ export default function JoinPage() {
   const [rooms, setRooms] = useState<PublicRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
 
-  // Prefill code from a shared link like /join?code=ABCD
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const c = params.get("code");
@@ -30,7 +31,6 @@ export default function JoinPage() {
     setLoadingRooms(false);
   }, []);
 
-  // Live list of public rooms.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshRooms();
@@ -48,7 +48,7 @@ export default function JoinPage() {
   const join = useCallback(
     async (roomCode: string) => {
       if (!name.trim()) {
-        setError("Nhập tên của bạn trước nhé.");
+        setError("err.needName");
         return;
       }
       setError(null);
@@ -67,24 +67,25 @@ export default function JoinPage() {
 
   return (
     <PageShell>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <Brand small />
+        <LangToggle />
       </div>
-      <h1 className="font-display font-semibold text-ink text-2xl mb-1">Vào phòng</h1>
-      <p className="text-ink-soft text-sm mb-6">Chọn một phòng công khai, hoặc nhập mã phòng riêng.</p>
+      <h1 className="font-display font-semibold text-ink text-2xl mb-1">{t("join.title")}</h1>
+      <p className="text-ink-soft text-sm mb-6">{t("join.subtitle")}</p>
 
       <Card className="mb-5">
         <div className="flex flex-col gap-4">
-          <Field label="Tên của bạn">
+          <Field label={t("field.yourName")}>
             <TextInput
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="VD: Minh"
+              placeholder={t("field.yourName_ph")}
               maxLength={40}
               autoFocus
             />
           </Field>
-          <Field label="Mã phòng" hint="Dùng khi phòng ở chế độ riêng tư.">
+          <Field label={t("join.code")} hint={t("join.code_hint")}>
             <div className="flex gap-2">
               <TextInput
                 value={code}
@@ -95,27 +96,27 @@ export default function JoinPage() {
                 className="font-mono tracking-[0.3em] text-lg"
               />
               <Button onClick={() => join(code)} disabled={busy || !code.trim()}>
-                Vào
+                {t("join.enter")}
               </Button>
             </div>
           </Field>
-          {error ? <Notice>{error}</Notice> : null}
+          {error ? <Notice>{t(error)}</Notice> : null}
         </div>
       </Card>
 
       <div className="flex items-center justify-between px-1 mb-2">
-        <h2 className="font-display font-semibold text-ink text-lg">Phòng công khai</h2>
+        <h2 className="font-display font-semibold text-ink text-lg">{t("join.publicRooms")}</h2>
         <button onClick={refreshRooms} className="text-xs text-ink-faint hover:text-ink cursor-pointer">
-          ⟳ làm mới
+          {t("join.refresh")}
         </button>
       </div>
 
       {loadingRooms ? (
-        <Card className="text-center py-6 text-ink-faint text-sm">Đang tải…</Card>
+        <Card className="text-center py-6 text-ink-faint text-sm">{t("join.loading")}</Card>
       ) : rooms.length === 0 ? (
         <Card className="text-center py-6">
-          <p className="text-ink-soft text-sm">Chưa có phòng công khai nào đang mở.</p>
-          <p className="text-ink-faint text-xs mt-1">Tạo phòng mới hoặc nhập mã phòng riêng.</p>
+          <p className="text-ink-soft text-sm">{t("join.noRooms")}</p>
+          <p className="text-ink-faint text-xs mt-1">{t("join.noRooms_hint")}</p>
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
@@ -130,10 +131,10 @@ export default function JoinPage() {
               <span className="flex-1 min-w-0">
                 <span className="block text-ink font-semibold truncate">{r.name}</span>
                 <span className="block text-xs text-ink-faint font-mono">
-                  {r.code} · {r.playerCount} người
+                  {r.code} · {t("join.players_n", { n: r.playerCount })}
                 </span>
               </span>
-              <span className="text-accent-ink text-sm font-semibold">Vào →</span>
+              <span className="text-accent-ink text-sm font-semibold">{t("join.enterArrow")}</span>
             </button>
           ))}
         </div>

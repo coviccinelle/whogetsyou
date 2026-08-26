@@ -51,8 +51,8 @@ export async function createRoom(input: {
 }): Promise<ActionResult<{ code: string; playerId: string }>> {
   const hostName = cleanName(input.hostName ?? "");
   const roomName = cleanName(input.roomName ?? "");
-  if (!hostName) return { ok: false, error: "Cần nhập tên của bạn." };
-  if (!roomName) return { ok: false, error: "Cần nhập tên phòng." };
+  if (!hostName) return { ok: false, error: "err.needName" };
+  if (!roomName) return { ok: false, error: "err.needRoomName" };
 
   const supabase = getSupabaseAdmin();
   const settings = normalizeSettings(input.settings);
@@ -79,7 +79,7 @@ export async function createRoom(input: {
       .select("id")
       .eq("code", code)
       .single();
-    if (!room) return { ok: false, error: "Không tạo được phòng." };
+    if (!room) return { ok: false, error: "err.createFailed" };
     const { error: hostInsertError } = await supabase.from("players").insert({
       id: hostId,
       room_id: room.id,
@@ -89,7 +89,7 @@ export async function createRoom(input: {
     if (hostInsertError) return { ok: false, error: hostInsertError.message };
     return { ok: true, data: { code, playerId: hostId } };
   }
-  return { ok: false, error: "Không tạo được mã phòng, thử lại nhé." };
+  return { ok: false, error: "err.codeFailed" };
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +125,8 @@ export async function joinRoom(input: {
 }): Promise<ActionResult<{ code: string; playerId: string }>> {
   const code = (input.code ?? "").trim().toUpperCase();
   const name = cleanName(input.name ?? "");
-  if (!code) return { ok: false, error: "Cần nhập mã phòng." };
-  if (!name) return { ok: false, error: "Cần nhập tên của bạn." };
+  if (!code) return { ok: false, error: "err.needCode" };
+  if (!name) return { ok: false, error: "err.needName" };
 
   const supabase = getSupabaseAdmin();
   const { data: room } = await supabase
@@ -134,9 +134,9 @@ export async function joinRoom(input: {
     .select("id, started")
     .eq("code", code)
     .single();
-  if (!room) return { ok: false, error: "Không tìm thấy phòng với mã này." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (room.started) {
-    return { ok: false, error: "Ván đã bắt đầu rồi (tính năng vào lại sẽ có sau)." };
+    return { ok: false, error: "err.alreadyStarted" };
   }
 
   const { data: player, error } = await supabase
@@ -144,7 +144,7 @@ export async function joinRoom(input: {
     .insert({ room_id: room.id, name, role: "joiner" })
     .select("id")
     .single();
-  if (error || !player) return { ok: false, error: error?.message ?? "Không vào được phòng." };
+  if (error || !player) return { ok: false, error: error?.message ?? "err.joinFailed" };
   return { ok: true, data: { code, playerId: player.id } };
 }
 
@@ -161,8 +161,8 @@ async function assertHost(code: string, hostId: string): Promise<HostGuard> {
     .select("id, host_id, started")
     .eq("code", code.trim().toUpperCase())
     .single<HostRoom>();
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
-  if (room.host_id !== hostId) return { ok: false, error: "Chỉ chủ phòng mới làm được việc này." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
+  if (room.host_id !== hostId) return { ok: false, error: "err.hostOnly" };
   return { ok: true, room };
 }
 
@@ -196,7 +196,7 @@ export async function removePlayer(input: {
   const guard = await assertHost(input.code, input.hostId);
   if (!guard.ok) return { ok: false, error: guard.error };
   if (input.playerId === input.hostId) {
-    return { ok: false, error: "Không thể tự xoá chủ phòng." };
+    return { ok: false, error: "err.cantRemoveHost" };
   }
   const supabase = getSupabaseAdmin();
   const { error } = await supabase
@@ -246,7 +246,7 @@ export async function startGame(input: {
     .eq("room_id", guard.room.id)
     .order("joined_at", { ascending: true });
   if (!players || players.length < MIN_PLAYERS_TO_START) {
-    return { ok: false, error: `Cần ít nhất ${MIN_PLAYERS_TO_START} người để bắt đầu.` };
+    return { ok: false, error: "err.needMinPlayers" };
   }
 
   const order = players.map((p) => p.id);

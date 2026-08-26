@@ -87,15 +87,15 @@ export async function generateQuestion(input: {
   playerId: string;
 }): Promise<ActionResult<{ question: string }>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
-    return { ok: false, error: "Chỉ người kể chuyện mới sinh câu hỏi." };
+    return { ok: false, error: "err.storytellerGenOnly" };
   if (!room.selected_theme || !room.selected_level)
-    return { ok: false, error: "Chưa chọn chủ đề/mức độ." };
+    return { ok: false, error: "err.noThemeLevel" };
   try {
     return await freshPool(room);
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Lỗi sinh câu hỏi." };
+  } catch {
+    return { ok: false, error: "err.genFailed" };
   }
 }
 
@@ -107,17 +107,17 @@ export async function regenerateQuestion(input: {
   playerId: string;
 }): Promise<ActionResult<{ question: string }>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
   if (storytellerId(room) !== input.playerId)
-    return { ok: false, error: "Chỉ người kể chuyện mới đổi câu hỏi." };
+    return { ok: false, error: "err.storytellerOnlyQ" };
   const draft = room.question as QuestionDraft | null;
   try {
     if (draft?.pool && typeof draft.index === "number" && draft.index + 1 < draft.pool.length) {
       return await produceFromPool(room, draft.pool, draft.index + 1);
     }
     return await freshPool(room);
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Lỗi đổi câu hỏi." };
+  } catch {
+    return { ok: false, error: "err.regenFailed" };
   }
 }
 
@@ -129,10 +129,10 @@ export async function suggestMyAnswer(input: {
   playerId: string;
 }): Promise<ActionResult<{ answer: string }>> {
   const room = await loadRoom(input.code);
-  if (!room) return { ok: false, error: "Không tìm thấy phòng." };
-  if (room.phase !== "answer_entry") return { ok: false, error: "Chưa tới lúc trả lời." };
+  if (!room) return { ok: false, error: "err.roomNotFound" };
+  if (room.phase !== "answer_entry") return { ok: false, error: "err.notAnswerTime" };
   const draft = room.question as QuestionDraft | null;
-  if (!draft) return { ok: false, error: "Chưa có câu hỏi." };
+  if (!draft) return { ok: false, error: "err.noQuestion" };
   const supabase = getSupabaseAdmin();
   const { data: player } = await supabase.from("players").select("name").eq("id", input.playerId).maybeSingle<{ name: string }>();
   try {
@@ -145,7 +145,7 @@ export async function suggestMyAnswer(input: {
       language: room.settings.language,
     });
     return { ok: true, data: { answer } };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Lỗi gợi ý." };
+  } catch {
+    return { ok: false, error: "err.suggestFailed" };
   }
 }

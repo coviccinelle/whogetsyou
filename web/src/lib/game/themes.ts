@@ -12,7 +12,8 @@ export const DEFAULT_THEMES: string[] = [
   "Random 🎲",
 ];
 
+// Labels/hints come from i18n (keys `level.shallow`, `level.shallow_hint`, …).
 export const LEVELS = [
-  { key: "shallow", label: "Nhẹ nhàng", emoji: "🫧", hint: "Vui, nhanh, dễ đoán · điểm ×1" },
-  { key: "deep", label: "Sâu sắc", emoji: "🌊", hint: "Suy ngẫm, cá nhân hơn · điểm ×2" },
+  { key: "shallow", emoji: "🫧" },
+  { key: "deep", emoji: "🌊" },
 ] as const;
