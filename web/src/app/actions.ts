@@ -46,6 +46,7 @@ function normalizeSettings(input: Partial<RoomSettings> | undefined): RoomSettin
 export async function createRoom(input: {
   hostName: string;
   roomName: string;
+  isPrivate?: boolean;
   settings?: Partial<RoomSettings>;
 }): Promise<ActionResult<{ code: string; playerId: string }>> {
   const hostName = cleanName(input.hostName ?? "");
@@ -56,6 +57,7 @@ export async function createRoom(input: {
   const supabase = getSupabaseAdmin();
   const settings = normalizeSettings(input.settings);
   const hostId = crypto.randomUUID();
+  const isPrivate = !!input.isPrivate;
 
   // Try a few codes in case of a rare collision.
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -64,6 +66,7 @@ export async function createRoom(input: {
       code,
       name: roomName,
       host_id: hostId,
+      is_private: isPrivate,
       settings,
     });
     if (roomError) {
@@ -87,6 +90,30 @@ export async function createRoom(input: {
     return { ok: true, data: { code, playerId: hostId } };
   }
   return { ok: false, error: "Không tạo được mã phòng, thử lại nhé." };
+}
+
+// ---------------------------------------------------------------------------
+// List public rooms that are open to join (public + not yet started)
+// ---------------------------------------------------------------------------
+export interface PublicRoom {
+  code: string;
+  name: string;
+  playerCount: number;
+}
+
+export async function listPublicRooms(): Promise<PublicRoom[]> {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("rooms")
+    .select("code, name, created_at, players(count)")
+    .eq("is_private", false)
+    .eq("started", false)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  return (data ?? []).map((r) => {
+    const players = r.players as unknown as { count: number }[] | null;
+    return { code: r.code as string, name: r.name as string, playerCount: players?.[0]?.count ?? 0 };
+  });
 }
 
 // ---------------------------------------------------------------------------

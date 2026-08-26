@@ -74,13 +74,13 @@ export const LANGUAGE_FLAGS: Record<Language, string> = {
 
 // A trimmed model list — expand later to match the old Python catalog.
 export const SUPPORTED_LLM_MODELS: Record<string, string> = {
+  "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite (nhanh, mặc định)",
   "gemini-3.6-flash": "Gemini 3.6 Flash",
   "gemini-3.7-flash": "Gemini 3.7 Flash",
   "gemini-3.5-flash": "Gemini 3.5 Flash",
-  "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite (nhanh)",
 };
 
-export const DEFAULT_LLM_MODEL = "gemini-3.6-flash";
+export const DEFAULT_LLM_MODEL = "gemini-3.5-flash-lite";
 
 export interface AnswerOption {
   submission_id: string;
