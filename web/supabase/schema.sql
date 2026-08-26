@@ -19,7 +19,7 @@ create table rooms (
   host_id           uuid not null,            -- players.id of the host
   is_private        boolean not null default false,
   started           boolean not null default false,
-  settings          jsonb not null default '{"max_score":100,"language":"en","llm_model":"gemini-3.6-flash"}'::jsonb,
+  settings          jsonb not null default '{"max_score":100,"language":"en","llm_model":"gemini-3.5-flash-lite"}'::jsonb,
   -- transient in-game state (used from Phase 2 onward)
   phase             text,                      -- theme_selection | level_selection | question_generation | answer_entry | guessing | reveal | results
   round             integer not null default 0,

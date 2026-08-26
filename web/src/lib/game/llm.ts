@@ -6,6 +6,9 @@ import OpenAI from "openai";
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";
 
+// Keep Gemini's thinking budget low: fast + cheap, plenty for short questions.
+const THINKING_EFFORT = "low" as const;
+
 interface Resolved {
   client: OpenAI;
   model: string;
@@ -43,6 +46,7 @@ export async function callStructured<T>(
   const completion = await client.chat.completions.create({
     model: m,
     messages,
+    reasoning_effort: THINKING_EFFORT,
     response_format: {
       type: "json_schema",
       json_schema: { name: jsonSchema.name, schema: jsonSchema.schema, strict: true },
@@ -55,6 +59,10 @@ export async function callStructured<T>(
 
 export async function callText(model: string, messages: ChatMessage[]): Promise<string> {
   const { client, model: m } = resolve(model);
-  const completion = await client.chat.completions.create({ model: m, messages });
+  const completion = await client.chat.completions.create({
+    model: m,
+    messages,
+    reasoning_effort: THINKING_EFFORT,
+  });
   return (completion.choices[0]?.message?.content ?? "").trim();
 }

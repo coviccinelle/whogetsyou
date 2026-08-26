@@ -25,9 +25,10 @@ export default function HostPage() {
   const router = useRouter();
   const [hostName, setHostName] = useState("");
   const [roomName, setRoomName] = useState("");
-  const [language, setLanguage] = useState<Language>("vn");
-  const [model, setModel] = useState("gemini-3.6-flash");
+  const [language, setLanguage] = useState<Language>("en");
+  const [model, setModel] = useState("gemini-3.5-flash-lite");
   const [maxScore, setMaxScore] = useState(100);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -37,6 +38,7 @@ export default function HostPage() {
     const res = await createRoom({
       hostName,
       roomName,
+      isPrivate,
       settings: { language, llm_model: model, max_score: maxScore },
     });
     if (!res.ok) {
@@ -76,6 +78,25 @@ export default function HostPage() {
               placeholder="VD: Tối thứ 6"
               maxLength={40}
             />
+          </Field>
+
+          <Field label="Ai được vào" hint={isPrivate ? "Chỉ người có mã mới vào được." : "Hiện ở danh sách phòng công khai để mọi người vào."}>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPrivate(false)}
+                className={`rounded-xl px-3 py-2.5 text-sm font-semibold border transition ${!isPrivate ? "bg-accent text-white border-accent" : "bg-surface text-ink-soft border-border-strong"}`}
+              >
+                🌐 Công khai
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPrivate(true)}
+                className={`rounded-xl px-3 py-2.5 text-sm font-semibold border transition ${isPrivate ? "bg-accent text-white border-accent" : "bg-surface text-ink-soft border-border-strong"}`}
+              >
+                🔒 Riêng tư
+              </button>
+            </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
